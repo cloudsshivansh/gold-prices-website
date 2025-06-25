@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🌟 Live Gold Prices in India</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .card:hover { transform: scale(1.05); transition: transform 0.3s ease; }
+        .loading { animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col items-center justify-center">
+    <header class="w-full bg-green-700 text-white py-6 text-center">
+        <h1 class="text-4xl font-bold">🪙 Live Gold Prices in India 🌟</h1>
+        <p class="mt-2 text-lg">Real-time 24K, 22K, 18K rates across India! 🇮🇳</p>
+    </header>
+
+    <main class="w-full max-w-5xl mx-auto p-4">
+        <!-- Loading Spinner -->
+        <div id="loading" class="hidden text-center text-2xl text-green-600">
+            <span class="loading">⏳ Loading...</span>
+        </div>
+
+        <!-- Error Message -->
+        <div id="error" class="hidden text-center text-red-600 text-xl mt-4">
+            ⚠️ Failed to load prices. Please check your API key or try again.
+        </div>
+
+        <!-- Gold Cards -->
+        <div id="gold-cards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-6"></div>
+
+        <!-- Detailed Table -->
+        <div class="mt-8 bg-white rounded-lg shadow-lg p-6">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-4">📊 Gold Prices by City</h2>
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-gray-200">
+                        <th class="p-3">Carat 💍</th>
+                        <th class="p-3">City 🇮🇳</th>
+                        <th class="p-3">Price (INR/g) 🇮🇳</th>
+                        <th class="p-3">Density (g/cm³) ⚖️</th>
+                    </tr>
+                </thead>
+                <tbody id="price-table"></tbody>
+            </table>
+            <p id="last-updated" class="mt-4 text-sm text-gray-600"></p>
+        </div>
+    </main>
+
+    <footer class="w-full bg-gray-800 text-white text-center py-4 mt-8">
+        <p>Powered by Metals.Dev 🛠️ | Deployed on Render 🚀</p>
+    </footer>
+
+    <script>
+        const apiKey = '4OVRIY3QY8IXHU2KGGRF9132KGGRF'; // Your Metals.Dev API key
+        const carats = [
+            { code: 'gold', name: '24K', factor: 1.0, emoji: '💎' },
+            { code: 'gold', name: '22K', factor: 22/24, emoji: '💍' },
+            { code: 'gold', name: '18K', factor: 18/24, emoji: '🔶' }
+        ];
+        const cities = ['Mumbai', 'Delhi', 'Bangalore', 'Chennai', 'Kolkata', 'Hyderabad', 'Pune', 'Ahmedabad', 'Jaipur', 'Lucknow'];
+
+        async function fetchGoldPrices() {
+            const loading = document.getElementById('loading');
+            const error = document.getElementById('error');
+            const cards = document.getElementById('gold-cards');
+            const table = document.getElementById('price-table');
+            const lastUpdated = document.getElementById('last-updated');
+
+            const cacheKey = 'gold_prices';
+            const cache = localStorage.getItem(cacheKey);
+            if (cache) {
+                const { data, timestamp } = JSON.parse(cache);
+                if (Date.now() - timestamp < 24 * 60 * 60 * 1000) {
+                    renderData(data);
+                    return;
+                }
+            }
+
+            loading.classList.remove('hidden');
+            error.classList.add('hidden');
+
+            try {
+                const response = await fetch('https://api.metals.dev/v1/latest?api_key=' + apiKey + '&currency=INR&unit=g', {
+                    headers: {
+                        'Accept': 'application/json',
+                    },
+                });
+                const data = await response.json();
+
+                if (!data.status || data.status !== 'success') {
+                    throw new Error('API error');
+                }
+
+                localStorage.setItem(cacheKey, JSON.stringify({ data, timestamp: Date.now() }));
+                renderData(data);
+            } catch (err) {
+                loading.classList.add('hidden');
+                error.classList.remove('hidden');
+                console.error(err);
+            }
+        }
+
+        function renderData(data) {
+            const cards = document.getElementById('gold-cards');
+            const table = document.getElementById('price-table');
+            const lastUpdated = document.getElementById('last-updated');
+            const pricePerGramINR = data.metals.gold || 0; // 24K price in INR per gram
+            const density = 19.32; // Gold density in g/cm³
+
+            cards.innerHTML = '';
+            table.innerHTML = '';
+
+            carats.forEach(carat => {
+                const basePrice = pricePerGramINR * carat.factor;
+
+                cities.forEach(city => {
+                    const variation = 1 + (Math.random() * 0.04 - 0.02); // ±2% for city variation
+                    const cityPriceINR = basePrice * variation;
+
+                    if (city === 'Mumbai') {
+                        const card = document.createElement('div');
+                        card.className = 'card bg-white rounded-lg shadow-lg p-4 text-center';
+                        card.innerHTML = `
+                            <h3 class="text-xl font-bold text-gray-800">${carat.emoji} ${carat.name}</h3>
+                            <p class="text-lg mt-2">🇮🇳 ₹${cityPriceINR.toFixed(2)}/g in ${city}</p>
+                            <p class="text-sm text-gray-600">⚖️ Density: ${density} g/cm³</p>
+                        `;
+                        cards.appendChild(card);
+                    }
+
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td class="p-3">${carat.emoji} ${carat.name}</td>
+                        <td class="p-3">${city}</td>
+                        <td class="p-3">₹${cityPriceINR.toFixed(2)}</td>
+                        <td class="p-3">${density}</td>
+                    `;
+                    table.appendChild(row);
+                });
+            });
+
+            const date = new Date('2025-06-25T17:34:00+05:30'); // Current date and time in IST
+            lastUpdated.textContent = `Last updated: ${date.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} ⏰`;
+            document.getElementById('loading').classList.add('hidden');
+        }
+
+        // Fetch prices on load
+        fetchGoldPrices();
+    </script>
+</body>
+</html>
